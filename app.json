@@ -16,7 +16,8 @@
       "bundleIdentifier": "club.sevenwellness.valet",
       "infoPlist": {
         "NSCameraUsageDescription": "Used to photograph cars at drop-off and pick-up.",
-        "NSPhotoLibraryUsageDescription": "Used to attach car photos to valet requests."
+        "NSPhotoLibraryUsageDescription": "Used to attach car photos to valet requests.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
