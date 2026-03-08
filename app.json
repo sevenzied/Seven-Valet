@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Seven Valet",
+    "slug": "seven-valet",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#07090F"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "club.sevenwellness.valet",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used to photograph cars at drop-off and pick-up.",
+        "NSPhotoLibraryUsageDescription": "Used to attach car photos to valet requests."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#07090F"
+      },
+      "package": "club.sevenwellness.valet",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-notifications",
+      "expo-camera",
+      "expo-image-picker",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "8c3e608a-e08e-43e1-8656-59a5f1629f2f"
+      }
+    },
+    "owner": "nancydev"
+  }
+}
