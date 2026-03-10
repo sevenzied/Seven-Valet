@@ -28,7 +28,6 @@ export const Colors = {
   goldLight:    "#DEC08A",
   goldMuted:    "rgba(200,169,110,0.12)",
   goldBorder:   "rgba(200,169,110,0.25)",
-  goldBorder:   "rgba(200,169,110,0.25)",
 
   // Status — desaturated, refined
   green:        "#6BAF8A",
@@ -52,13 +51,13 @@ export const Colors = {
 };
 
 export const STATUS_CONFIG = {
-  pending:    { label: "Requested",  color: Colors.amber, bg: Colors.amberMuted, border: Colors.amberBorder },
-  accepted:   { label: "Accepted",   color: Colors.blue,  bg: Colors.blueMuted,  border: Colors.blueBorder  },
-  parking:    { label: "Parking",    color: Colors.gold,  bg: Colors.goldMuted,  border: Colors.goldBorder  },
-  parked:     { label: "Parked",     color: Colors.green, bg: Colors.greenMuted, border: Colors.greenBorder },
-  retrieving: { label: "Retrieving", color: Colors.blue,  bg: Colors.blueMuted,  border: Colors.blueBorder  },
-  ready:      { label: "Ready",      color: Colors.green, bg: Colors.greenMuted, border: Colors.greenBorder },
-  completed:  { label: "Completed",  color: Colors.stone, bg: Colors.stoneMuted, border: "rgba(107,101,96,0.2)" },
+  pending:    { label: "Requested",  color: Colors.amber, bg: Colors.amberMuted, border: Colors.amberBorder, icon: "⏳" },
+  accepted:   { label: "Accepted",   color: Colors.blue,  bg: Colors.blueMuted,  border: Colors.blueBorder,  icon: "✓"  },
+  parking:    { label: "Parking",    color: Colors.gold,  bg: Colors.goldMuted,  border: Colors.goldBorder,  icon: "🚗" },
+  parked:     { label: "Parked",     color: Colors.green, bg: Colors.greenMuted, border: Colors.greenBorder, icon: "P"  },
+  retrieving: { label: "Retrieving", color: Colors.blue,  bg: Colors.blueMuted,  border: Colors.blueBorder,  icon: "↑"  },
+  ready:      { label: "Ready",      color: Colors.green, bg: Colors.greenMuted, border: Colors.greenBorder, icon: "✓"  },
+  completed:  { label: "Completed",  color: Colors.stone, bg: Colors.stoneMuted, border: "rgba(107,101,96,0.2)", icon: "—" },
 };
 
 export const ROLE_CONFIG = {

@@ -62,7 +62,7 @@ export function SectionHeader({ title, right }: { title: string; right?: React.R
     </View>
   );
 }
-export function EmptyState({ message }: { message: string }) {
+export function EmptyState({ message, icon }: { message: string; icon?: string }) {
   return (
     <View style={{ alignItems: "center", paddingTop: 64, gap: 10 }}>
       <View style={{ width: 40, height: 0.5, backgroundColor: Colors.border }} />
@@ -70,7 +70,7 @@ export function EmptyState({ message }: { message: string }) {
     </View>
   );
 }
-export function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
+export function StatCard({ label, value, color, icon }: { label: string; value: number; color: string; icon?: string }) {
   return (
     <Card style={{ flex: 1, alignItems: "center", paddingVertical: 20 }}>
       <Text style={{ fontSize: 28, fontWeight: "200", color, letterSpacing: -1 }}>{value}</Text>

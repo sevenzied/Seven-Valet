@@ -4,15 +4,15 @@
 //  Maps Zoho records → app ValetRequest objects
 // ─────────────────────────────────────────────────────────────
 
-import { fetchValetRequests, ZOHO_TO_APP, ZohoValetRecord } from "./api";
+import { fetchValetRequests, fetchMemberLocation, ZOHO_TO_APP, ZohoValetRecord } from "./api";
 
 export type RequestStatus =
   | "pending" | "accepted" | "parking" | "parked"
   | "retrieving" | "ready" | "completed";
 
 export interface ValetRequest {
-  _localId: string;         // Zoho record ID
-  zohoId: string;           // Zoho record ID (same, for API calls)
+  _localId: string;
+  zohoId: string;
   memberId: string;
   memberName: string;
   membershipTier: string;
@@ -32,7 +32,7 @@ export interface ValetRequest {
   brand: string;
   location: string;
   credits?: number;
-  // local-only override — driver accepted/started but not yet synced back
+  memberHomeClub?: string | null;   // member's Home Club Location from Contacts
   _localStatus?: RequestStatus;
 }
 
@@ -51,30 +51,30 @@ function zohoToRequest(z: ZohoValetRecord): ValetRequest {
   return {
     _localId: z.id,
     zohoId:   z.id,
-    memberId:      z.Member_Name?.id || "",
-    memberName:    z.Member_Name?.name || "Unknown Member",
+    memberId:       z.Member_Name?.id || "",
+    memberName:     z.Member_Name?.name || "Unknown Member",
     membershipTier: z.Membership_Type_Valet_Parking?.name || "Member",
-    memberCarId:   z.Member_Car_Name?.id || "",
-    parkingId:     z.id,
-    plate:         z.Plate_Number || "—",
-    carLabel:      z.Member_Car_Name?.name || "Vehicle",
-    status:        appStatus,
+    memberCarId:    z.Member_Car_Name?.id || "",
+    parkingId:      z.id,
+    plate:          z.Plate_Number || "—",
+    carLabel:       z.Member_Car_Name?.name || "Vehicle",
+    status:         appStatus,
     time,
     createdAt,
     includeCarWash: false,
-    spot:          z.Parking_Location || undefined,
-    brand:         "Seven",
-    location:      z.Club_Location_Valet_Parking?.name || "Dubai",
+    spot:           z.Parking_Location || undefined,
+    brand:          "Seven",
+    location:       z.Club_Location || "Dubai",
+    memberHomeClub: z.memberHomeClub ?? null,
   };
 }
 
 export const RequestStore = {
   getAll: () => [..._requests],
 
-  // Start polling Zoho every 8 seconds
   startPolling: () => {
     if (_polling) return;
-    RequestStore._sync(); // immediate first fetch
+    RequestStore._sync();
     _polling = setInterval(() => RequestStore._sync(), 8000);
   },
 
@@ -82,14 +82,24 @@ export const RequestStore = {
     if (_polling) { clearInterval(_polling); _polling = null; }
   },
 
-  // Sync from Zoho
   _sync: async () => {
     try {
       const zohoRecords = await fetchValetRequests();
-      const incoming = zohoRecords.map(zohoToRequest);
+      const base = zohoRecords.map(zohoToRequest);
 
-      // Preserve local status overrides (e.g. driver accepted but Zoho not updated yet)
-      const merged = incoming.map(incoming => {
+      // Enrich each request with the member's home club location (parallel)
+      const enriched = await Promise.all(
+        base.map(async (req) => {
+          if (req.memberId) {
+            const memberHomeClub = await fetchMemberLocation(req.memberId);
+            return { ...req, memberHomeClub };
+          }
+          return { ...req, memberHomeClub: null };
+        })
+      );
+
+      // Preserve local status overrides
+      const merged = enriched.map(incoming => {
         const existing = _requests.find(r => r._localId === incoming._localId);
         if (existing?._localStatus) {
           return { ...incoming, status: existing._localStatus, _localStatus: existing._localStatus };
@@ -104,7 +114,6 @@ export const RequestStore = {
     }
   },
 
-  // Local optimistic update (shown immediately, confirmed on next poll)
   update: (localId: string, patch: Partial<ValetRequest> & { _localStatus?: RequestStatus }) => {
     _requests = _requests.map(r =>
       r._localId === localId
@@ -118,14 +127,12 @@ export const RequestStore = {
     RequestStore._emit();
   },
 
-  // Clear local status override once Zoho confirms
   clearLocalStatus: (localId: string) => {
     _requests = _requests.map(r =>
       r._localId === localId ? { ...r, _localStatus: undefined } : r
     );
   },
 
-  // Add a purely local request (for demo/testing only)
   addLocal: (req: ValetRequest) => {
     _requests = [req, ..._requests];
     RequestStore._emit();
@@ -133,7 +140,7 @@ export const RequestStore = {
 
   subscribe: (fn: Listener) => {
     _listeners.add(fn);
-    fn([..._requests]); // immediately call with current state
+    fn([..._requests]);
     return () => _listeners.delete(fn);
   },
 

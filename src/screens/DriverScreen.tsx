@@ -26,7 +26,7 @@ export function DriverScreen({ user, onLogout }: Props) {
       const pending = reqs.filter(r => r.status === "pending").length;
       if (pending > prevPending.current) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        Notifications.scheduleNotificationAsync({
+        void Notifications.scheduleNotificationAsync({
           content: { title: "🚗 New Valet Request", body: "A member is waiting — tap to view." },
           trigger: null,
         }).catch(() => {});
@@ -36,10 +36,15 @@ export function DriverScreen({ user, onLogout }: Props) {
     return unsub;
   }, []);
 
-  const active    = requests.filter(r => r.status !== "completed");
-  const mine      = requests.filter(r => r.driverId === user.id);
-  const completed = requests.filter(r => r.status === "completed");
-  const pending   = requests.filter(r => r.status === "pending").length;
+  // Filter to this driver's club location only
+  const locationRequests = requests.filter(r =>
+    r.memberHomeClub === user.Club_Location
+  );
+
+  const active    = locationRequests.filter(r => r.status !== "completed");
+  const mine      = locationRequests.filter(r => r.driverId === user.id);
+  const completed = locationRequests.filter(r => r.status === "completed");
+  const pending   = locationRequests.filter(r => r.status === "pending").length;
 
   const filtered = filter === "active" ? active : filter === "mine" ? mine : completed;
 
@@ -50,6 +55,11 @@ export function DriverScreen({ user, onLogout }: Props) {
         <View>
           <Text style={Typography.label}>Welcome back</Text>
           <Text style={[Typography.heading2, { marginTop: 2 }]}>{user.name}</Text>
+          {user.Club_Location ? (
+            <Text style={{ fontSize: 11, color: Colors.textSub, marginTop: 2, letterSpacing: 0.5 }}>
+              {user.Club_Location}
+            </Text>
+          ) : null}
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           {pending > 0 && (

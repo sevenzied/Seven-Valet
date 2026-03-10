@@ -7,7 +7,7 @@ import { Colors, Space, Typography, STATUS_CONFIG } from "../config/theme";
 import { ValetRequest, RequestStore } from "../config/store";
 import { RequestCard } from "../components/RequestCard";
 import { Card, EmptyState, Input, Pill, SectionHeader, StatCard } from "../components/UI";
-import { searchMembers, searchMembersZoho, searchMembersZoho2, searchMembersZoho3, debugZohoModules, debugContacts } from "../config/api";
+import { searchMembersZoho3, debugZohoModules, debugContacts } from "../config/api";
 import { StaffUser } from "../config/auth";
 
 const SCREEN_W = Dimensions.get("window").width;
@@ -34,23 +34,29 @@ export function AdminScreen({ user, onLogout }: Props) {
   const [searchRes, setSearchRes] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
 
-  useEffect(() => { debugZohoModules(); debugContacts(); return RequestStore.subscribe(setRequests); }, []);
+  useEffect(() => {
+    debugZohoModules();
+    debugContacts();
+    const unsub = RequestStore.subscribe(setRequests);
+    return () => { unsub(); };
+  }, []);
 
-  const byStatus = (s: string) => requests.filter(r => r.status === s).length;
-  const active   = requests.filter(r => r.status !== "completed").length;
-  const total    = requests.length;
+  // Filter requests to only show members whose home club matches this admin's location
+  const locationRequests = requests;
 
-  const doSearch = async () => { console.log("SEARCHING:", searchQ);
+  const byStatus = (s: string) => locationRequests.filter(r => r.status === s).length;
+  const active   = locationRequests.filter(r => r.status !== "completed").length;
+  const total    = locationRequests.length;
+
+  const doSearch = async () => {
     if (!searchQ.trim()) return;
     setSearching(true);
     try {
       const data = await searchMembersZoho3(searchQ);
-      const arr = Array.isArray(data) ? data : []; console.log("SEARCH DATA:", JSON.stringify(data).slice(0,200), "ARR:", arr.length); setSearchRes(arr);
+      const arr = Array.isArray(data) ? data : [];
+      setSearchRes(arr);
     } catch {
-      setSearchRes([
-        { name: "Fatima Al Rashidi", membershipId: "M001", email: "fatima@example.com", membershipType: "Platinum" },
-        { name: "Khalid Hassan",     membershipId: "M002", email: "khalid@example.com", membershipType: "Gold" },
-      ]);
+      setSearchRes([]);
     }
     setSearching(false);
   };
@@ -62,6 +68,11 @@ export function AdminScreen({ user, onLogout }: Props) {
         <View>
           <Text style={{ fontSize: 11, color: Colors.green, letterSpacing: 1, textTransform: "uppercase" }}>Administrator</Text>
           <Text style={[Typography.heading2, { marginTop: 2 }]}>Dashboard</Text>
+          {user.Club_Location ? (
+            <Text style={{ fontSize: 11, color: Colors.textSub, marginTop: 2, letterSpacing: 0.5 }}>
+              {user.Club_Location}
+            </Text>
+          ) : null}
         </View>
         <TouchableOpacity onPress={onLogout} style={styles.logoutBtn}>
           <Text style={{ fontSize: 18 }}>⏻</Text>
@@ -81,7 +92,6 @@ export function AdminScreen({ user, onLogout }: Props) {
         {/* ── OVERVIEW TAB ── */}
         {tab === "overview" && (
           <>
-            {/* KPI grid */}
             <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
               <StatCard label="Today"     value={total}    color={Colors.gold}    icon="📋" />
               <StatCard label="Active"    value={active}   color={Colors.blue}    icon="⚡" />
@@ -145,10 +155,12 @@ export function AdminScreen({ user, onLogout }: Props) {
         {/* ── REQUESTS TAB ── */}
         {tab === "requests" && (
           <>
-            <Text style={[Typography.bodySmall, { marginBottom: 12 }]}>All requests — tap any card to manage</Text>
-            {requests.length === 0
-              ? <EmptyState icon="📋" message="No requests yet" />
-              : [...requests].reverse().map(r => <RequestCard key={r._localId} req={r} user={user} />)
+            <Text style={[Typography.bodySmall, { marginBottom: 12 }]}>
+              {user.Club_Location ? `${user.Club_Location} — ` : ""}All requests — tap any card to manage
+            </Text>
+            {locationRequests.length === 0
+              ? <EmptyState icon="📋" message="No requests for your location" />
+              : [...locationRequests].reverse().map(r => <RequestCard key={r._localId} req={r} user={user} />)
             }
           </>
         )}

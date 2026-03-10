@@ -12,10 +12,9 @@ let _refreshToken: string = "";
 let _clientId: string = "";
 let _clientSecret: string = "";
 let _tokenExpiry: number = 0;
-let _refreshPromise: Promise<void> | null = null; // prevent parallel refreshes
+let _refreshPromise: Promise<void> | null = null;
 
 export const ZohoAuth = {
-  // Call once on app start with credentials from your Zoho API Console
   init: (config: {
     accessToken: string;
     refreshToken: string;
@@ -32,11 +31,9 @@ export const ZohoAuth = {
   },
 
   getToken: () => _accessToken,
-  isExpired: () => Date.now() >= _tokenExpiry - 60000, // refresh 60s before expiry
+  isExpired: () => Date.now() >= _tokenExpiry - 60000,
 
-  // Refresh access token using the refresh token
   refresh: async (): Promise<void> => {
-    // If already refreshing, wait for that to finish
     if (_refreshPromise) return _refreshPromise;
 
     _refreshPromise = (async () => {
@@ -77,7 +74,6 @@ export const ZohoAuth = {
 async function zohoFetch(path: string, opts: RequestInit = {}, retried = false): Promise<any> {
   if (!_accessToken) throw new Error("No Zoho access token. Call ZohoAuth.init() first.");
 
-  // Proactively refresh if token is about to expire
   if (ZohoAuth.isExpired()) {
     await ZohoAuth.refresh();
   }
@@ -90,7 +86,6 @@ async function zohoFetch(path: string, opts: RequestInit = {}, retried = false):
 
   const res = await fetch(`${ZOHO_BASE}${path}`, { ...opts, headers });
 
-  // If 401 and haven't retried yet — refresh and retry once
   if (res.status === 401 && !retried) {
     console.warn("⚠️ Got 401 from Zoho — refreshing token and retrying...");
     await ZohoAuth.refresh();
@@ -103,7 +98,6 @@ async function zohoFetch(path: string, opts: RequestInit = {}, retried = false):
 }
 
 // ── Status Values ─────────────────────────────────────────────
-// These are the ACTUAL stored values in Zoho (not display labels)
 export const ZOHO_STATUS = {
   REQUESTED:        "Requested",
   PARKED:           "Parked",
@@ -112,7 +106,6 @@ export const ZOHO_STATUS = {
   INVALID:          "Invalid Parking Request",
 };
 
-// App flow status → Zoho stored value
 export const APP_TO_ZOHO: Record<string, string> = {
   pending:    ZOHO_STATUS.REQUESTED,
   accepted:   ZOHO_STATUS.REQUESTED,
@@ -123,7 +116,6 @@ export const APP_TO_ZOHO: Record<string, string> = {
   completed:  ZOHO_STATUS.DELIVERED,
 };
 
-// Zoho stored value → App flow status
 export const ZOHO_TO_APP: Record<string, string> = {
   [ZOHO_STATUS.REQUESTED]:        "pending",
   [ZOHO_STATUS.PARKED]:           "parked",
@@ -141,6 +133,7 @@ export interface ZohoValetRecord {
   Member_Car_Name: { id: string; name: string } | null;
   Plate_Number: string | null;
   Parking_Location: string | null;
+  Club_Location: string | null;
   KeyHolderID: string | null;
   ParkIN_Date_Time: string | null;
   ParkIN_Completed_Date_Time: string | null;
@@ -150,21 +143,33 @@ export interface ZohoValetRecord {
   Membership_Type_Valet_Parking: { id: string; name: string } | null;
   Daily_Valet_Credit: boolean;
   Created_Time: string;
+  memberHomeClub?: string | null;
 }
 
 // ── Valet Parkings ────────────────────────────────────────────
-
-// Poll this every 8 seconds to get live requests
 export async function fetchValetRequests(): Promise<ZohoValetRecord[]> {
   try {
     const data = await zohoFetch(
-      "/Valet_Parkings?sort_by=Created_Time&sort_order=desc&per_page=50"
+      "/Valet_Parkings?fields=Name,Status,Member_Name,Member_Car_Name,Plate_Number,Parking_Location,Club_Location,KeyHolderID,ParkIN_Date_Time,ParkIN_Completed_Date_Time,ParkOut_Request_Date_Time,ParkOut_Date_Time,Membership_Type_Valet_Parking,Daily_Valet_Credit,Created_Time&sort_by=Created_Time&sort_order=desc&per_page=50"
     );
     return data.data || [];
   } catch (e: any) {
     if (e.message === "ZOHO_TOKEN_EXPIRED") throw e;
     console.warn("fetchValetRequests:", e.message);
     return [];
+  }
+}
+
+// Fetch a member's home club location from Contacts (field API name: Location)
+export async function fetchMemberLocation(contactId: string): Promise<string | null> {
+  try {
+    console.log("fetchMemberLocation → contactId:", contactId);
+    const data = await zohoFetch(`/Contacts/${contactId}?fields=Location`);
+    const location = data?.data?.[0]?.Location ?? null;
+    console.log("fetchMemberLocation ← result:", location);
+    return location;
+  } catch {
+    return null;
   }
 }
 
@@ -179,7 +184,8 @@ export async function updateValetRecord(
     ParkOut_Date_Time: string;
   }>
 ) {
-  console.log("ZOHO UPDATE:", id, JSON.stringify(fields)); const zohoResp = await zohoFetch(`/Valet_Parkings/${id}`, {
+  console.log("ZOHO UPDATE:", id, JSON.stringify(fields));
+  const zohoResp = await zohoFetch(`/Valet_Parkings/${id}`, {
     method: "PUT",
     body: JSON.stringify({ data: [fields] }),
   });
@@ -187,7 +193,6 @@ export async function updateValetRecord(
   return zohoResp;
 }
 
-// Driver marks car as physically parked + records spot
 export async function markAsParked(id: string, spot: string) {
   return updateValetRecord(id, {
     Status: ZOHO_STATUS.PARKED,
@@ -196,14 +201,10 @@ export async function markAsParked(id: string, spot: string) {
   });
 }
 
-// Driver starts bringing car back
 export async function markUnparkRequested(id: string) {
-  return updateValetRecord(id, {
-    Status: ZOHO_STATUS.UNPARK_REQUESTED,
-  });
+  return updateValetRecord(id, { Status: ZOHO_STATUS.UNPARK_REQUESTED });
 }
 
-// Car delivered to member
 export async function markAsDelivered(id: string) {
   return updateValetRecord(id, {
     Status: ZOHO_STATUS.DELIVERED,
@@ -225,13 +226,13 @@ export async function uploadCarPhoto(carId: string, uri: string) {
   });
 }
 
-// ── Member search (via your backend) ─────────────────────────
+// ── Member search ─────────────────────────────────────────────
 export async function searchMembers(q: string) {
   const res = await fetch(`${BACKEND_BASE}/members/search?q=${encodeURIComponent(q)}`);
   return res.json();
 }
 
-// ── Valet Staff (Zoho CRM login) ──────────────────────────────
+// ── Valet Staff ───────────────────────────────────────────────
 export interface ZohoStaffRecord {
   id: string;
   Name: string;
@@ -242,7 +243,6 @@ export interface ZohoStaffRecord {
   Active: boolean;
 }
 
-// Fetch all active staff — called once on app load, cached
 export async function fetchValetStaff(): Promise<ZohoStaffRecord[]> {
   try {
     const data = await zohoFetch(
@@ -255,7 +255,6 @@ export async function fetchValetStaff(): Promise<ZohoStaffRecord[]> {
   }
 }
 
-
 export async function debugZohoModules() {
   try {
     const data = await zohoFetch(`/settings/modules`);
@@ -264,7 +263,6 @@ export async function debugZohoModules() {
     console.log("MODULES ERROR:", e.message);
   }
 }
-
 
 export async function debugContacts() {
   try {
@@ -279,9 +277,7 @@ export async function searchMembersZoho(q: string) {
   try {
     const data = await zohoFetch(`/Contacts/search?criteria=((Full_Name:contains:${encodeURIComponent(q)}))&fields=Full_Name,Email,Mobile,Membership_ID,Membership_Type,Account_Status,Valet_Parking_Cr_Balance&per_page=20`);
     return (data.data || []).map((c: any) => ({
-      name: c.Full_Name,
-      email: c.Email,
-      mobile: c.Mobile,
+      name: c.Full_Name, email: c.Email, mobile: c.Mobile,
       membershipId: c.Membership_ID,
       membershipType: c.Membership_Type || c.Account_Status || "Member",
       valetCredits: c.Valet_Parking_Cr_Balance,
@@ -297,9 +293,7 @@ export async function searchMembersZoho2(q: string) {
     const encoded = encodeURIComponent(q);
     const data = await zohoFetch(`/Contacts/search?criteria=((Full_Name:contains:${encoded}))&fields=Full_Name,Email,Mobile,Membership_ID,Membership_Type,Account_Status,Valet_Parking_Cr_Balance&per_page=20`);
     return (data.data || []).map((c: any) => ({
-      name: c.Full_Name,
-      email: c.Email,
-      mobile: c.Mobile,
+      name: c.Full_Name, email: c.Email, mobile: c.Mobile,
       membershipId: c.Membership_ID,
       membershipType: c.Membership_Type || c.Account_Status || "Member",
       valetCredits: c.Valet_Parking_Cr_Balance ?? 0,
@@ -313,13 +307,10 @@ export async function searchMembersZoho2(q: string) {
 export async function searchMembersZoho3(q: string) {
   try {
     const encoded = encodeURIComponent(q);
-    // Use word search - simpler Zoho API
     const data = await zohoFetch(`/Contacts/search?word=${encoded}&fields=Full_Name,Email,Mobile,Membership_ID,Membership_Type,Account_Status,Valet_Parking_Cr_Balance&per_page=20`);
     console.log("SEARCH RAW:", JSON.stringify(data).slice(0, 300));
     return (data.data || []).map((c: any) => ({
-      name: c.Full_Name,
-      email: c.Email,
-      mobile: c.Mobile,
+      name: c.Full_Name, email: c.Email, mobile: c.Mobile,
       membershipId: c.Membership_ID,
       membershipType: c.Membership_Type || c.Account_Status || "Member",
       valetCredits: c.Valet_Parking_Cr_Balance ?? 0,

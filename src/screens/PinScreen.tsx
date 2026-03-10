@@ -28,7 +28,6 @@ export function PinScreen({ onLogin }: Props) {
   const [checking, setChecking] = useState(false);
   const shakeAnim               = useRef(new Animated.Value(0)).current;
 
-  // Load staff from Zoho on mount
   useEffect(() => {
     fetchValetStaff()
       .then(data => { console.log("STAFF:", JSON.stringify(data)); setStaff(data); })
@@ -54,13 +53,14 @@ export function PinScreen({ onLogin }: Props) {
         const match = await verifyPin(fullPin, s.PIN_Hash);
         if (match) {
           const user: StaffUser = {
-            id:       s.id,
-            staffId:  s.Staff_ID,
-            name:     s.Name,
-            role:     s.Role,
-            location: s.Club_Location || "Dubai",
-            active:   s.Active,
-            pinHash:  s.PIN_Hash,
+            id:            s.id,
+            staffId:       s.Staff_ID,
+            name:          s.Name,
+            role:          s.Role,
+            location:      s.Club_Location || "Dubai",
+            Club_Location: s.Club_Location || null,
+            active:        s.Active,
+            pinHash:       s.PIN_Hash,
           };
           setMatched(user);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -69,11 +69,11 @@ export function PinScreen({ onLogin }: Props) {
           return;
         }
       }
-      // No match
       shake();
       setError("Incorrect PIN.");
       setTimeout(() => { setPin(""); setError(""); }, 1400);
-    } catch(err: any) { console.log("PIN ERROR:", err.message, err.stack);
+    } catch(err: any) {
+      console.log("PIN ERROR:", err.message, err.stack);
       shake();
       setError("An error occurred. Try again.");
       setTimeout(() => { setPin(""); setError(""); }, 1400);
@@ -102,7 +102,6 @@ export function PinScreen({ onLogin }: Props) {
 
   const roleConf = matched ? (ROLE_CONFIG[matched.role] || ROLE_CONFIG.driver) : null;
 
-  // ── Loading state ─────────────────────────────────────────
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -120,10 +119,8 @@ export function PinScreen({ onLogin }: Props) {
     <SafeAreaView style={styles.safe}>
       <LogoMark />
 
-      {/* PIN input area */}
       <Animated.View style={[styles.center, { transform: [{ translateX: shakeAnim }] }]}>
         {matched ? (
-          // Success state
           <View style={styles.successWrap}>
             <View style={[styles.rolePill, { borderColor: `${roleConf!.color}40` }]}>
               <View style={[styles.roleDot, { backgroundColor: roleConf!.color }]} />
@@ -139,12 +136,10 @@ export function PinScreen({ onLogin }: Props) {
             </Text>
           </View>
         ) : (
-          // PIN entry state
           <View style={styles.center}>
             <Text style={[Typography.label, { marginBottom: 28, letterSpacing: 2 }]}>
               ENTER PIN
             </Text>
-            {/* Dots */}
             <View style={styles.dots}>
               {Array.from({ length: 4 }).map((_, i) => (
                 <View
@@ -157,7 +152,6 @@ export function PinScreen({ onLogin }: Props) {
                 />
               ))}
             </View>
-            {/* Error */}
             <View style={{ height: 20, marginTop: 16, alignItems: "center" }}>
               {checking
                 ? <ActivityIndicator size="small" color={Colors.textMuted} />
@@ -170,7 +164,6 @@ export function PinScreen({ onLogin }: Props) {
         )}
       </Animated.View>
 
-      {/* Keypad */}
       {!matched && (
         <View style={styles.keypad}>
           {KEYS.map((row, ri) => (
@@ -188,7 +181,6 @@ export function PinScreen({ onLogin }: Props) {
                   ]}
                 >
                   {k === "DEL" ? (
-                    // Backspace icon — two lines
                     <View style={{ gap: 3, alignItems: "flex-end" }}>
                       <View style={{ width: 14, height: 1.5, backgroundColor: Colors.textMuted, borderRadius: 1 }} />
                       <View style={{ width: 10, height: 1.5, backgroundColor: Colors.textMuted, borderRadius: 1 }} />
@@ -206,20 +198,16 @@ export function PinScreen({ onLogin }: Props) {
   );
 }
 
-// ── Logo component ────────────────────────────────────────────
 function LogoMark() {
   return (
     <View style={styles.logoWrap}>
-      {/* Wordmark */}
       <Text style={styles.wordmark}>SEVEN</Text>
-      {/* Thin rule */}
       <View style={styles.rule} />
       <Text style={[Typography.label, { letterSpacing: 3 }]}>VALET</Text>
     </View>
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
@@ -230,7 +218,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   center: { alignItems: "center" },
-
   logoWrap: { alignItems: "center", gap: 10 },
   wordmark: {
     fontSize: 26,
@@ -243,7 +230,6 @@ const styles = StyleSheet.create({
     height: 0.5,
     backgroundColor: Colors.gold,
   },
-
   dots: { flexDirection: "row", gap: 20 },
   dot: {
     width: 8,
@@ -261,7 +247,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.red,
     backgroundColor: Colors.redMuted,
   },
-
   successWrap: { alignItems: "center", gap: 4 },
   rolePill: {
     flexDirection: "row",
@@ -278,7 +263,6 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 3,
   },
-
   keypad: { width: "100%", gap: 10 },
   keyRow: { flexDirection: "row", gap: 10 },
   key: {

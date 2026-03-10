@@ -10,6 +10,7 @@ export interface StaffUser {
   name: string;
   role: Role;
   location: string;
+  Club_Location: string | null;
   active: boolean;
   pinHash: string;
 }
