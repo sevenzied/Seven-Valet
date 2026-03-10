@@ -97,6 +97,11 @@ async function zohoFetch(path: string, opts: RequestInit = {}, retried = false):
   return data;
 }
 
+// ── Simple in-memory cache ────────────────────────────────────
+const MEMBER_LOCATION_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const _memberLocationCache = new Map<string, { value: string | null; ts: number }>();
+const _memberLocationInFlight = new Map<string, Promise<string | null>>();
+
 // ── Status Values ─────────────────────────────────────────────
 export const ZOHO_STATUS = {
   REQUESTED:        "Requested",
@@ -163,11 +168,33 @@ export async function fetchValetRequests(): Promise<ZohoValetRecord[]> {
 // Fetch a member's home club location from Contacts (field API name: Location)
 export async function fetchMemberLocation(contactId: string): Promise<string | null> {
   try {
-    console.log("fetchMemberLocation → contactId:", contactId);
-    const data = await zohoFetch(`/Contacts/${contactId}?fields=Location`);
-    const location = data?.data?.[0]?.Location ?? null;
-    console.log("fetchMemberLocation ← result:", location);
-    return location;
+    const cached = _memberLocationCache.get(contactId);
+    if (cached && Date.now() - cached.ts < MEMBER_LOCATION_TTL_MS) {
+      console.log("fetchMemberLocation (cache hit) → contactId:", contactId, "result:", cached.value);
+      return cached.value;
+    }
+
+    const existing = _memberLocationInFlight.get(contactId);
+    if (existing) {
+      console.log("fetchMemberLocation (in-flight) → contactId:", contactId);
+      return await existing;
+    }
+
+    const p = (async () => {
+      console.log("fetchMemberLocation → contactId:", contactId);
+      const data = await zohoFetch(`/Contacts/${contactId}?fields=Location`);
+      const location = data?.data?.[0]?.Location ?? null;
+      _memberLocationCache.set(contactId, { value: location, ts: Date.now() });
+      console.log("fetchMemberLocation ← result:", location);
+      return location;
+    })();
+
+    _memberLocationInFlight.set(contactId, p);
+    try {
+      return await p;
+    } finally {
+      _memberLocationInFlight.delete(contactId);
+    }
   } catch {
     return null;
   }
