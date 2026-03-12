@@ -33,7 +33,9 @@ export function DriverScreen({ user, onLogout }: Props) {
       }
       prevPending.current = pending;
     });
-    return unsub;
+    return () => {
+      unsub();
+    };
   }, []);
 
   // Filter to this driver's club location only
