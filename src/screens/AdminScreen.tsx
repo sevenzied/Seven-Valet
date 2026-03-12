@@ -60,6 +60,16 @@ export function AdminScreen({ user, onLogout }: Props) {
     );
   }, [requests, selectedLocation]);
 
+  // Sort: active first, completed last; within each group, newest first
+  const sortedRequests = useMemo(() => {
+    return [...locationRequests].sort((a, b) => {
+      const aActive = a.status !== "completed" ? 1 : 0;
+      const bActive = b.status !== "completed" ? 1 : 0;
+      if (aActive !== bActive) return bActive - aActive; // active first
+      return (b.createdAt ?? 0) - (a.createdAt ?? 0);   // newest first
+    });
+  }, [locationRequests]);
+
   const byStatus = (s: string) => locationRequests.filter(r => r.status === s).length;
   const active   = locationRequests.filter(r => r.status !== "completed").length;
   const total    = locationRequests.length;
@@ -203,7 +213,7 @@ export function AdminScreen({ user, onLogout }: Props) {
             </Text>
             {locationRequests.length === 0
               ? <EmptyState icon="📋" message={selectedLocation ? `No requests for ${selectedLocation}` : "No requests yet"} />
-              : [...locationRequests].reverse().map(r => <RequestCard key={r._localId} req={r} user={user} />)
+              : sortedRequests.map(r => <RequestCard key={r._localId} req={r} user={user} />)
             }
           </>
         )}
